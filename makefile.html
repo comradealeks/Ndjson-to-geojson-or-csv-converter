@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NDJSON to GeoJSON/CSV Converter</title>
+</head>
+<body>
+    <h1>NDJSON to GeoJSON/CSV Converter</h1>
+    
+    <input type="file" id="fileInput" accept=".ndjson" multiple>
+    <button id="convertToGeoJSON">Convert to GeoJSON</button>
+    <button id="convertToCSV">Convert to CSV</button>
+    
+    <h2>Output:</h2>
+    <a id="downloadLink" style="display: none;">Download</a>
+    <pre id="output"></pre>
+    
+    
+
+    <script>
+        // Function for the conversion of NDJSON to GeoJSON
+        function ndjsonToGeoJSON(ndjsonArray) {
+            const geojson = {
+                type: "FeatureCollection",
+                features: []
+            };
+
+            ndjsonArray.forEach(ndjson => {
+                const lines = ndjson.trim().split('\n');
+                lines.forEach(line => {
+                    const jsonObj = JSON.parse(line);
+                    const feature = {
+                        type: "Feature",
+                        properties: {
+                            name: jsonObj.name,
+                            display_name: jsonObj.display_name,
+                            population: jsonObj.population,
+                            address: jsonObj.address
+                        },
+                        geometry: {
+                            type: "Point",
+                            coordinates: jsonObj.location
+                        }
+                    };
+                    geojson.features.push(feature);
+                });
+            });
+
+            return geojson;
+        }
+
+        // Function that convert NDJSON to CSV
+        function ndjsonToCSV(ndjsonArray) {
+            const headers = ["name", "display_name", "population", "location"];
+            const csvRows = [headers.join(',')];
+
+            ndjsonArray.forEach(ndjson => {
+                const lines = ndjson.trim().split('\n');
+                lines.forEach(line => {
+                    const jsonObj = JSON.parse(line);
+                    const row = [
+                        jsonObj.name,
+                        jsonObj.display_name,
+                        jsonObj.population,
+                        jsonObj.location.join(',')
+                    ];
+                    csvRows.push(row.join(','));
+                });
+            });
+
+            return csvRows.join('\n');
+        }
+
+        // Function for making a downloadable file of the type you wanted
+        function downloadFile(content, fileName, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.getElementById('downloadLink');
+            a.href = url;
+            a.download = fileName;
+            a.style.display = 'inline';
+            a.textContent = `Download ${fileName}`;
+        }
+
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const files = event.target.files;
+            if (files.length > 0) {
+                const ndjsonArray = [];
+                let filesRead = 0;
+
+                Array.from(files).forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        ndjsonArray.push(e.target.result);
+                        filesRead++;
+
+                        if (filesRead === files.length) {
+                            // This part enables GeoJSON conversion and download
+                            document.getElementById('convertToGeoJSON').addEventListener('click', function() {
+                                const geojson = ndjsonToGeoJSON(ndjsonArray);
+                                document.getElementById('output').textContent = JSON.stringify(geojson, null, 2);
+                                downloadFile(JSON.stringify(geojson, null, 2), 'combined.geojson', 'application/geo+json');
+                            });
+
+                            // This part enables CSV conversion and download
+                            document.getElementById('convertToCSV').addEventListener('click', function() {
+                                const csv = ndjsonToCSV(ndjsonArray);
+                                document.getElementById('output').textContent = csv;
+                                downloadFile(csv, 'combined.csv', 'text/csv');
+                            });
+                        }
+                    };
+                    reader.readAsText(file);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
